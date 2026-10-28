@@ -16,7 +16,8 @@ FROM base AS kimodo
 ENV WORKER_KIND=kimodo TEXT_ENCODER_MODE=local TEXT_ENCODER_DEVICE=cuda
 RUN git clone https://github.com/nv-tlabs/kimodo.git /opt/kimodo \
     && cd /opt/kimodo && git checkout e1c219c99b4b94ba48be1fb6a1cbc64ecee4c954 \
-    && python -m pip install --no-build-isolation . 'bitsandbytes==0.48.2' 'accelerate==1.12.0' \
+    && python -m pip install 'pybind11==2.13.6' \
+    && CMAKE_PREFIX_PATH="$(python -m pybind11 --cmakedir)" python -m pip install --no-build-isolation . 'bitsandbytes==0.48.2' 'accelerate==1.12.0' \
     && python -c 'import kimodo; import motion_correction'
 CMD ["python", "/app/handler.py"]
 
@@ -28,5 +29,6 @@ RUN git clone https://github.com/VAST-AI-Research/SkinTokens.git /opt/skintokens
     && sed -i "s/host='0.0.0.0'/host='127.0.0.1'/" src/server/bpy_server.py \
     && sed -i 's/repo_id=REPO_ID,/repo_id=REPO_ID, revision="79736cad0fd84de384d5eede659b4ebd24effe33",/' download.py
 RUN python /app/install_flash.py
+RUN python -m pip install 'scipy==1.15.3'
 RUN cd /opt/skintokens && python -c 'import demo; import bpy; import flash_attn'
 CMD ["python", "/app/handler.py"]
