@@ -1,0 +1,7 @@
+{
+  "kimodo": {"repository": "https://github.com/nv-tlabs/kimodo.git", "revision": "e1c219c99b4b94ba48be1fb6a1cbc64ecee4c954"},
+  "skintokens": {"repository": "https://github.com/VAST-AI-Research/SkinTokens.git", "revision": "273b691d35989d71cd17ff2895fdc735097b92d1"},
+  "kimodo_model": {"repository": "nvidia/Kimodo-SOMA-RP-v1.2", "revision": "0e3c89024d896064b6851201373f7834784a386b"},
+  "skintokens_model": {"repository": "VAST-AI/SkinTokens", "revision": "79736cad0fd84de384d5eede659b4ebd24effe33"},
+  "text_encoder": {"repository": "matbee/kimodo-llm2vec-nf4", "revision": "268b2f7bbbb8361bce76cc3f34d61b5467643a59", "license": "llama3"}
+}
