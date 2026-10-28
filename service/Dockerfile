@@ -9,8 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN python -m pip install runpod==1.7.13 boto3==1.40.61 ninja packaging
 WORKDIR /app
-COPY service/ /app/
-COPY storage.py /app/storage.py
 
 FROM base AS kimodo
 ENV WORKER_KIND=kimodo TEXT_ENCODER_MODE=local TEXT_ENCODER_DEVICE=cuda
@@ -19,6 +17,8 @@ RUN git clone https://github.com/nv-tlabs/kimodo.git /opt/kimodo \
     && python -m pip install 'pybind11==2.13.6' \
     && CMAKE_PREFIX_PATH="$(python -m pybind11 --cmakedir)" python -m pip install --no-build-isolation . 'bitsandbytes==0.48.2' 'accelerate==1.12.0' \
     && python -c 'import kimodo; import motion_correction'
+COPY service/ /app/
+COPY storage.py /app/storage.py
 CMD ["python", "/app/handler.py"]
 
 FROM base AS skintokens
@@ -28,7 +28,12 @@ RUN git clone https://github.com/VAST-AI-Research/SkinTokens.git /opt/skintokens
     && python -m pip install -r requirements.txt 'transformers==4.57.1' 'bpy==4.2.0' \
     && sed -i "s/host='0.0.0.0'/host='127.0.0.1'/" src/server/bpy_server.py \
     && sed -i 's/repo_id=REPO_ID,/repo_id=REPO_ID, revision="79736cad0fd84de384d5eede659b4ebd24effe33",/' download.py
-RUN python /app/install_flash.py
+COPY service/install_flash.py /tmp/install_flash.py
+RUN python /tmp/install_flash.py
 RUN python -m pip install 'scipy==1.15.3'
-RUN cd /opt/skintokens && python -c 'import demo; import bpy; import flash_attn'
+# The upstream import probes the GPU name even on CPU-only build machines.
+# Mock that single query during the import check; runtime code is unchanged.
+RUN cd /opt/skintokens && python -c 'import torch; from unittest.mock import patch; p=patch.object(torch.cuda,"get_device_name",return_value="CPU build check"); p.start(); import demo; p.stop(); import bpy; import flash_attn'
+COPY service/ /app/
+COPY storage.py /app/storage.py
 CMD ["python", "/app/handler.py"]
