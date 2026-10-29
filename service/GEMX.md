@@ -4,10 +4,20 @@ Single-person video motion capture alongside the existing Kimodo and SkinTokens
 queue workers. This uses NVIDIA GEM-X Body Motion native77, not a framewise pose
 estimator or the separately gated EgoHand pipeline.
 
-Preparation status (29 October 2026): local implementation and 13 CPU contract
-tests pass. The container has not been built or deployed and no GPU smoke test
-has run. Public repository push/CI needs explicit user approval after automatic
-approval review rejected that publication step. Existing endpoints are unchanged.
+Installed and tested (29 October 2026): 13 CPU contract tests and a real two-second
+video job pass. The public image was checked for anonymous pulling before deployment.
+Endpoint: [`e776cqs5q4qlvz`](https://console.runpod.io/serverless/user/endpoint/e776cqs5q4qlvz),
+separate 10 GB cache `rycr62ztay`, EU-RO-1. Existing endpoints are unchanged.
+
+Tested immutable image:
+`ghcr.io/i3oot/gemx-runpod-worker:45886b857606833528a7a69126232618548969c9`.
+Build: [successful CI run](https://github.com/i3oot/character-ai-runpod-workers/actions/runs/40871518989).
+The 60-frame/77-joint test returned all six outputs with verified checksums.
+BVH reconstruction agrees with the NPZ within 0.000001 meters and all preview
+frames match the animation clock. The real video used `--camera background` and
+Contact/IK correction. Evidence is retained locally in
+`art/character-ai/gemx-runpod-smoke-v1/`; this is a service test, not game-animation
+quality acceptance or a calibrated accuracy benchmark.
 
 ## Operation
 
@@ -65,6 +75,12 @@ minimum zero/maximum one worker, five-second idle shutdown, 20-minute job limit.
 Separate 10 GB standard model-cache volume. Two ~3.5 GB image encoders run in
 successive stages with batch size one; GPU suitability must be checked by a real
 smoke run rather than inferred from model file size.
+
+Measured on RTX A4500: 95.526 seconds processing/export/artifact upload for two
+seconds of 720-pixel video, 3.67 GB peak PyTorch-allocated VRAM. These exclude
+initial backend/cache loading and do not measure total CUDA process memory.
+The first cold start also pulls the ~5.33 GB compressed container and ~7.6 GB
+model/assets; later workers reuse the separate model volume.
 
 Published rates at setup: approximately $0.576 per running GPU hour, plus
 $0.70/month for the retained cache. Cold starts/downloads and processing may be

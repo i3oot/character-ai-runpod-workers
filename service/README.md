@@ -7,6 +7,10 @@ source. The existing Pixal3D deployment is not changed.
 
 ## Current state — 28 October 2026
 
+- Update 29 October: GEM-X video-to-motion is installed as a third isolated
+  service; the real-video GPU smoke test passed. See [GEMX.md](GEMX.md) for the
+  endpoint, CLI, outputs, measured performance and additional cache cost.
+
 - Worker code and client implemented; seven CPU contract tests pass.
 - Standard volumes created in EU-RO-1: Kimodo **25 GB** (`x70mhforid`),
   SkinTokens **10 GB** (`fwqrbw2hoo`, RunPod's minimum volume size).
