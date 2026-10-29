@@ -3,5 +3,9 @@
   "skintokens": {"repository": "https://github.com/VAST-AI-Research/SkinTokens.git", "revision": "273b691d35989d71cd17ff2895fdc735097b92d1"},
   "kimodo_model": {"repository": "nvidia/Kimodo-SOMA-RP-v1.2", "revision": "0e3c89024d896064b6851201373f7834784a386b"},
   "skintokens_model": {"repository": "VAST-AI/SkinTokens", "revision": "79736cad0fd84de384d5eede659b4ebd24effe33"},
-  "text_encoder": {"repository": "matbee/kimodo-llm2vec-nf4", "revision": "268b2f7bbbb8361bce76cc3f34d61b5467643a59", "license": "llama3"}
+  "text_encoder": {"repository": "matbee/kimodo-llm2vec-nf4", "revision": "268b2f7bbbb8361bce76cc3f34d61b5467643a59", "license": "llama3"},
+  "gemx": {"repository": "https://github.com/NVlabs/GEM-X.git", "revision": "20555befe2fbbe5b2015e1fff7ff214dc18ea9d6", "license": "Apache-2.0"},
+  "gemx_model": {"repository": "nvidia/GEM-X", "revision": "4fce057963671fd95cd4154297944397e7b5a9a0", "license": "NVIDIA Open Model License"},
+  "gemx_soma": {"repository": "nvidia/SOMA-X", "revision": "d281db2d01553f7230c56e764cec00fe27ef23f7", "asset_version": "v0.3.3"},
+  "gemx_detector": {"url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_x_8xb8-300e_humanart-a39d44ed.zip", "archive_sha256": "1c6fccc5cd450eb563b1fe4eba13c9bdf9ea8263b6ae1cb3ada765aa4ebea2c7", "sha256": "8e9ea96a176bd48501eaaa77216e49ee30794d2f8ba80c7b9862beca4ea972da"}
 }

@@ -1,6 +1,6 @@
-# Kimodo motion and SkinTokens rigging on RunPod
+# Kimodo, SkinTokens and GEM-X on RunPod
 
-Two separate queue workers following the existing Pixal3D setup. Models stay on
+Three separate queue workers following the existing Pixal3D setup. Models stay on
 small, independent RunPod network volumes; input/output assets use the existing
 private S3 artifact bucket. No model, mesh or credential is included in the image
 source. The existing Pixal3D deployment is not changed.
@@ -10,11 +10,17 @@ source. The existing Pixal3D deployment is not changed.
 - Worker code and client implemented; seven CPU contract tests pass.
 - Standard volumes created in EU-RO-1: Kimodo **25 GB** (`x70mhforid`),
   SkinTokens **10 GB** (`fwqrbw2hoo`, RunPod's minimum volume size).
-- Public worker repository publication is authorized; container builds and live tests are in progress.
+- Public images deployed: https://github.com/i3oot/character-ai-runpod-workers
+- Both normal (non-Batch) Nyx tests completed; verified artifacts are in
+  `art/character-ai/nyx-runpod-test-v1/`. The `nyx-skintokens-greeting`
+  GLB/Blender files use the new SkinTokens rig with retargeted Kimodo motion.
 - Kimodo now uses the pinned public `matbee/kimodo-llm2vec-nf4` encoder.
   No gated Meta download or Hugging Face token is required.
-- No live inference, model-cache download, VRAM measurement or export quality
-  acceptance has been claimed.
+- Measured: Kimodo 4.135 s generation, 6.13 GB peak allocated VRAM on RTX 4000 Ada;
+  SkinTokens 13.604 s generation, 2.12 GB peak allocated VRAM on L4. These exclude
+  backend loading and do not measure total CUDA/Blender process memory.
+- Visual previews are review prototypes; no production acceptance claimed.
+  The old 22-bone rig preview was rejected and is retained for audit only.
 
 The local deployment state lives in
 `.tools/character-ai/runpod/deployment.json` and contains **only resource IDs and
@@ -22,16 +28,15 @@ non-secret settings**. Never copy private runtime environment files into a build
 
 ## Cost and lifecycle
 
-Planned GPU pool: `AMPERE_24` (24 GB L4/A5000/3090 class), one GPU per worker;
-Blackwell MIG is excluded from this CUDA/Torch build. EU-RO-1 currently offers L4
-in this price class. There is no automatic fallback to a higher priced pool.
+Current pools: Kimodo `AMPERE_16` (tested RTX 4000 Ada), SkinTokens `AMPERE_24`
+(tested L4). Blackwell MIG is excluded from the SkinTokens CUDA/Torch build.
+There is no automatic fallback to a higher priced pool.
 
-Each endpoint: minimum zero workers, maximum one, five-second idle shutdown,
-20-minute execution limit, serialized jobs. Published Flex pricing is about
-**$0.69 per running worker-hour**; startup/model downloads and idle time are
-billable. The cheaper 16 GB class leaves less headroom for SkinTokens and cannot
-hold Kimodo's roughly 17 GB all-GPU setup. A measured 16 GB/CPU-offload trial can
-be considered later without changing these defaults silently.
+Each endpoint has minimum zero workers, maximum one, five-second idle shutdown,
+20-minute execution limit, serialized jobs. Flex pricing is about **$0.58/hour**
+for Kimodo and **$0.69/hour** for SkinTokens while running. Both test endpoints
+were checked with zero running workers after completion. Scaled-down idle,
+initializing and throttled workers may still appear in the UI.
 
 The separate 25+10 GB standard volumes cost approximately **$2.45/month** in total
 at $0.07/GB/month, including periods with zero GPU workers. Inputs and results
@@ -96,6 +101,9 @@ SkinTokens accepts self-contained GLBs up to 128 MiB and 1–10 beams (default 5
 Failures/OOMs are not automatically resubmitted or moved to a pricier GPU.
 
 ## Build and deployment
+
+For the additional video-to-motion worker, see [GEMX.md](GEMX.md). Build and deploy
+it with `--service gemx`; existing Kimodo/SkinTokens endpoints and caches are retained.
 
 `source-lock.json` pins the two upstream source revisions and primary model
 checkpoints. Kimodo dependencies and Qwen config are

@@ -21,6 +21,27 @@ COPY service/ /app/
 COPY storage.py /app/storage.py
 CMD ["python", "/app/handler.py"]
 
+# GEM-X needs a newer, separate Torch runtime; existing workers keep their bases.
+FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:b85566342b86d13a67712e9315d40cdc2dad7f8d86df1aff3831f80835edbcca AS gemx
+ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1 \
+    WORKER_KIND=gemx MODEL_CACHE=/runpod-volume/cache \
+    HF_HOME=/runpod-volume/cache/huggingface TORCH_HOME=/runpod-volume/cache/torch \
+    XDG_CACHE_HOME=/runpod-volume/cache/xdg HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HUB_DISABLE_IMPLICIT_TOKEN=1 TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=0 \
+    OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates ffmpeg libglib2.0-0 libgl1 build-essential \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/NVlabs/GEM-X.git /opt/gemx \
+    && cd /opt/gemx && git checkout 20555befe2fbbe5b2015e1fff7ff214dc18ea9d6 \
+    && python -m pip install '.[video]' runpod==1.7.13 boto3==1.40.61 \
+    && python -m pip check \
+    && python -c 'import gem.inference.body_video; import soma; import cv2; import onnxruntime'
+WORKDIR /app
+COPY service/ /app/
+COPY storage.py /app/storage.py
+CMD ["python", "/app/handler.py"]
+
 FROM base AS skintokens
 ENV WORKER_KIND=skintokens MAX_JOBS=2
 RUN git clone https://github.com/VAST-AI-Research/SkinTokens.git /opt/skintokens \

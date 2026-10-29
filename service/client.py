@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import subprocess
 import tempfile
 import time
 import urllib.error
@@ -59,6 +60,14 @@ def prepare(args):
                 'steps': args.steps, 'seed': args.seed}
         if args.constraints:
             data['constraints'] = json.loads(args.constraints.read_text())
+    elif args.kind == 'gemx':
+        from video_io import inspect_video, validate_interval
+        inspect = inspect_video(args.video)
+        validate_interval(inspect, args.start, args.duration)
+        data = {'kind': 'gemx', 'video_key': f'{PREFIX}/inputs/{uuid.uuid4().hex}/video{args.video.suffix.lower()}',
+                'video_sha256': digest(args.video), 'seed': args.seed,
+                'start': args.start, 'duration': args.duration, 'camera': args.camera,
+                'max_side': args.max_side, 'postprocess': not args.no_postprocess}
     else:
         if not args.mesh.is_file() or not 20 <= args.mesh.stat().st_size <= 128 * 1024 * 1024:
             raise ValueError('Input must be a GLB smaller than 128 MiB')
@@ -129,8 +138,8 @@ def run(args):
         endpoint = json.loads(args.deployment.read_text())['services'][args.kind]['endpoint_id']
     if ticket_path.exists():
         ticket = json.loads(ticket_path.read_text())
-        previous = {k: v for k, v in ticket['input'].items() if k != 'mesh_key'}
-        requested = {k: v for k, v in data.items() if k != 'mesh_key'}
+        previous = {k: v for k, v in ticket['input'].items() if k not in ('mesh_key', 'video_key')}
+        requested = {k: v for k, v in data.items() if k not in ('mesh_key', 'video_key')}
         if previous != requested or ticket['endpoint_id'] != endpoint:
             raise ValueError('Ticket belongs to another input/options/endpoint')
         if ticket.get('state') == 'submitting' and not ticket.get('job_id'):
@@ -139,6 +148,8 @@ def run(args):
         storage, bucket = s3_client(), bucket_name()
         if args.kind == 'skintokens':
             storage.upload_file(str(args.mesh), bucket, data['mesh_key'])
+        elif args.kind == 'gemx':
+            storage.upload_file(str(args.video), bucket, data['video_key'])
         # Write BEFORE the billable request. A lost response must not trigger duplicate spending.
         ticket = {'endpoint_id': identifier(endpoint), 'bucket': bucket, 'input': data, 'state': 'submitting'}
         ticket_path.parent.mkdir(parents=True, exist_ok=True)
@@ -158,7 +169,7 @@ def main():
     parser.add_argument('--env-file', type=Path, default=DEFAULT_ENV)
     parser.add_argument('--deployment', type=Path, default=DEFAULT_DEPLOYMENT)
     sub = parser.add_subparsers(dest='command', required=True)
-    for kind in ('kimodo', 'skintokens'):
+    for kind in ('kimodo', 'skintokens', 'gemx'):
         p = sub.add_parser(kind)
         p.set_defaults(kind=kind)
         p.add_argument('--endpoint')
@@ -170,6 +181,13 @@ def main():
             p.add_argument('--duration', type=float, default=3)
             p.add_argument('--steps', type=int, default=100)
             p.add_argument('--constraints', type=Path)
+        elif kind == 'gemx':
+            p.add_argument('video', type=Path)
+            p.add_argument('--start', type=float, default=0)
+            p.add_argument('--duration', type=float, default=3)
+            p.add_argument('--camera', choices=['static', 'background'], default='static')
+            p.add_argument('--max-side', type=int, default=720)
+            p.add_argument('--no-postprocess', action='store_true')
         else:
             p.add_argument('mesh', type=Path)
             p.add_argument('--use-skeleton', action='store_true')
@@ -183,10 +201,12 @@ def main():
     args = parser.parse_args()
     try:
         run(args)
-    except (ValueError, RuntimeError, TimeoutError, OSError, KeyError) as error:
+    except (subprocess.SubprocessError, ValueError, RuntimeError, TimeoutError, OSError, KeyError) as error:
         # Runtime credentials and HTTP request objects must never be included in diagnostics.
         if isinstance(error, OSError):
             parser.exit(1, 'Network/filesystem operation failed; check runtime configuration\n')
+        if isinstance(error, subprocess.SubprocessError):
+            parser.exit(1, 'Video inspection failed; check FFmpeg installation and input file\n')
         parser.exit(1, str(error) + '\n')
 
 

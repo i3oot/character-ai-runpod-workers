@@ -3,21 +3,30 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      kind:
+        description: Worker to build (existing endpoints are never redeployed)
+        type: choice
+        default: gemx
+        options: [gemx, kimodo, skintokens]
 permissions:
   contents: read
   packages: write
 jobs:
   publish:
-    strategy:
-      fail-fast: false
-      matrix:
-        kind: [kimodo, skintokens]
+    env:
+      BUILD_KIND: ${{ inputs.kind || 'gemx' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Contract tests
-        run: python3 -m unittest discover -s service -p 'test_*.py' -v
+        run: |
+          python3 -m venv /tmp/worker-tests
+          /tmp/worker-tests/bin/pip install numpy scipy
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          /tmp/worker-tests/bin/python -m unittest discover -s service -p 'test_*.py' -v
       - name: Free build disk
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
@@ -30,11 +39,11 @@ jobs:
         with:
           context: .
           file: service/Dockerfile
-          target: ${{ matrix.kind }}
+          target: ${{ env.BUILD_KIND }}
           push: true
           tags: |
-            ghcr.io/i3oot/${{ matrix.kind }}-runpod-worker:${{ github.sha }}
-            ghcr.io/i3oot/${{ matrix.kind }}-runpod-worker:latest
+            ghcr.io/i3oot/${{ env.BUILD_KIND }}-runpod-worker:${{ github.sha }}
+            ghcr.io/i3oot/${{ env.BUILD_KIND }}-runpod-worker:latest
           labels: org.opencontainers.image.source=https://github.com/i3oot/character-ai-runpod-workers
-          cache-from: type=gha,scope=${{ matrix.kind }}
-          cache-to: type=gha,mode=min,scope=${{ matrix.kind }}
+          cache-from: type=gha,scope=${{ env.BUILD_KIND }}
+          cache-to: type=gha,mode=min,scope=${{ env.BUILD_KIND }}

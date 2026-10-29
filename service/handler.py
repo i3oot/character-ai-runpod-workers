@@ -47,6 +47,16 @@ def handler(job):
             return existing
         with tempfile.TemporaryDirectory(prefix=kind + '-', dir='/tmp') as temp:
             folder = Path(temp)
+            if kind == 'gemx':
+                obj = storage.head_object(Bucket=bucket, Key=data['video_key'])
+                if not 20 <= obj['ContentLength'] <= 256 * 1024 * 1024:
+                    raise ValueError('Input video exceeds 256 MiB or is empty')
+                video = folder / ('video' + Path(data['video_key']).suffix)
+                storage.download_file(bucket, data['video_key'], str(video))
+                if digest(video) != data['video_sha256']:
+                    raise ValueError('Input checksum mismatch')
+                from video_io import inspect_video, validate_interval
+                validate_interval(inspect_video(video), data.get('start', 0), data.get('duration', 3))
             if kind == 'skintokens':
                 obj = storage.head_object(Bucket=bucket, Key=data['mesh_key'])
                 if not 20 <= obj['ContentLength'] <= 128 * 1024 * 1024:
@@ -60,7 +70,13 @@ def handler(job):
                     raise ValueError('Skin-only mode requires an existing skeleton')
             if BACKEND is None:
                 from backends import Kimodo, SkinTokens
-                BACKEND = (Kimodo if kind == 'kimodo' else SkinTokens)()
+                if kind == 'gemx':
+                    from gemx_backend import GemX
+                    BACKEND = GemX()
+                else:
+                    BACKEND = (Kimodo if kind == 'kimodo' else SkinTokens)()
+            import torch
+            torch.cuda.reset_peak_memory_stats()
             started = time.monotonic()
             files = BACKEND.generate(data, folder)
             if kind == 'skintokens':

@@ -4,7 +4,7 @@ import math
 import re
 
 PREFIX = 'character-ai'
-KINDS = ('kimodo', 'skintokens')
+KINDS = ('kimodo', 'skintokens', 'gemx')
 
 
 def digest(path):
@@ -24,8 +24,12 @@ def identifier(value):
 def validate(data, kind):
     if kind not in KINDS or not isinstance(data, dict) or data.get('kind') != kind:
         raise ValueError('Job does not match this worker')
-    allowed = {'kind', 'seed', 'prompt', 'duration', 'steps', 'constraints'} if kind == 'kimodo' else {
-        'kind', 'seed', 'mesh_key', 'mesh_sha256', 'use_skeleton', 'num_beams'}
+    allowed = {
+        'kimodo': {'kind', 'seed', 'prompt', 'duration', 'steps', 'constraints'},
+        'skintokens': {'kind', 'seed', 'mesh_key', 'mesh_sha256', 'use_skeleton', 'num_beams'},
+        'gemx': {'kind', 'seed', 'video_key', 'video_sha256', 'start', 'duration',
+                 'camera', 'max_side', 'postprocess'},
+    }[kind]
     if set(data) - allowed:
         raise ValueError('Unknown job option')
     seed = data.get('seed', 42)
@@ -47,7 +51,7 @@ def validate(data, kind):
             import json
             if not isinstance(data['constraints'], list) or len(json.dumps(data['constraints'])) > 65536:
                 raise ValueError('Constraints must be a JSON list smaller than 64 KiB')
-    else:
+    elif kind == 'skintokens':
         key = data.get('mesh_key', '')
         if not re.fullmatch(r'character-ai/inputs/[a-f0-9]{32}/mesh\.glb', key):
             raise ValueError('Mesh must use this service input prefix')
@@ -57,4 +61,19 @@ def validate(data, kind):
             raise ValueError('use_skeleton must be boolean')
         if type(data.get('num_beams', 5)) is not int or not 1 <= data.get('num_beams', 5) <= 10:
             raise ValueError('num_beams must be 1–10')
+    else:
+        if not re.fullmatch(r'character-ai/inputs/[a-f0-9]{32}/video\.(mp4|mov|webm|mkv)', data.get('video_key', '')):
+            raise ValueError('Video must use this service input prefix')
+        if not re.fullmatch('[a-f0-9]{64}', data.get('video_sha256', '')):
+            raise ValueError('Video checksum required')
+        for key, default, low, high in [('start', 0, 0, 86400), ('duration', 3, 0.5, 10)]:
+            value = data.get(key, default)
+            if type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= high:
+                raise ValueError(f'{key} must be finite and within {low}–{high} seconds')
+        if data.get('camera', 'static') not in ('static', 'background'):
+            raise ValueError('Camera must be static or background')
+        if type(data.get('max_side', 720)) is not int or not 256 <= data.get('max_side', 720) <= 1280:
+            raise ValueError('max_side must be 256–1280 pixels')
+        if type(data.get('postprocess', True)) is not bool:
+            raise ValueError('postprocess must be boolean')
     return data

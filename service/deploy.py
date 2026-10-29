@@ -10,8 +10,10 @@ import urllib.request
 
 from client import DEFAULT_DEPLOYMENT, DEFAULT_ENV, load_env, save
 
-SERVICE_NAMES = {'kimodo': 'party-kimodo-motion', 'skintokens': 'party-skintokens-rigging'}
-CACHE_GB = {'kimodo': 25, 'skintokens': 10}
+SERVICE_NAMES = {'kimodo': 'party-kimodo-motion', 'skintokens': 'party-skintokens-rigging',
+                 'gemx': 'party-gemx-video-motion'}
+CACHE_GB = {'kimodo': 25, 'skintokens': 10, 'gemx': 10}
+GPU_POOLS = {'kimodo': 'AMPERE_16', 'skintokens': 'AMPERE_24', 'gemx': 'AMPERE_16'}
 REGION = 'EU-RO-1'
 
 
@@ -45,8 +47,9 @@ def endpoint_spec(kind, volume, image_tag):
     return {'name': SERVICE_NAMES[kind], 'type': 'QUEUE',
         'image': f'ghcr.io/i3oot/{kind}-runpod-worker:{image_tag}', 'disk': 30,
         'ports': [], 'env': env_for(kind),
-        'gpu': {'pools': ['AMPERE_24'], 'count': 1, 'minCudaVersion': '12.8',
-            'excludedTypes': ['NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb']},
+        'gpu': {'pools': [GPU_POOLS[kind]],
+            'count': 1, 'minCudaVersion': '12.8',
+            'excludedTypes': ['NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb'] if kind == 'skintokens' else []},
         'workers': {'min': 0, 'max': 1, 'idleTimeout': 5},
         'scaling': {'type': 'QUEUE_DELAY', 'queueDelay': 4},
         'timeout': 1200000, 'flashboot': 'OFF', 'dataCenterIds': [REGION],
@@ -59,17 +62,24 @@ def main():
     p.add_argument('--env-file', type=Path, default=DEFAULT_ENV)
     p.add_argument('--state', type=Path, default=DEFAULT_DEPLOYMENT)
     p.add_argument('--image-tag', default='latest')
+    p.add_argument('--service', choices=list(SERVICE_NAMES), action='append')
     args = p.parse_args()
+    if args.command == 'apply' and not re.fullmatch('[a-f0-9]{40}', args.image_tag):
+        raise ValueError('Deploy an immutable, verified 40-character image commit tag')
     if args.command == 'plan':
-        print(json.dumps({'data_center': REGION, 'gpu_pool': 'AMPERE_24', 'max_workers_each': 1,
-            'min_workers_each': 0, 'idle_seconds': 5, 'model_cache_gb': CACHE_GB,
-            'storage_estimate_usd_month': 2.45, 'gpu_estimate_usd_running_hour_each': 0.69}, indent=2))
+        selected = args.service or list(SERVICE_NAMES)
+        print(json.dumps({'data_center': REGION, 'gpu_pools': {k: GPU_POOLS[k] for k in selected}, 'max_workers_each': 1,
+            'min_workers_each': 0, 'idle_seconds': 5, 'model_cache_gb': {k: CACHE_GB[k] for k in selected},
+            'storage_estimate_usd_month': round(sum(CACHE_GB[k] for k in selected) * 0.07, 2),
+            'gpu_estimate_usd_running_hour': {k: (0.684 if GPU_POOLS[k] == 'AMPERE_24' else 0.576) for k in selected}}, indent=2))
         return
     load_env(args.env_file)
     endpoints = request('serverless')['endpoints']
     volumes = request('network-volumes')['networkVolumes']
-    state = {'services': {}}
+    state = json.loads(args.state.read_text()) if args.state.exists() else {'services': {}}
     for kind, name in SERVICE_NAMES.items():
+        if args.service and kind not in args.service:
+            continue
         cache_name = f'{name}-cache-{REGION.lower()}'
         matches = [v for v in volumes if v['name'] == cache_name]
         existing = [e for e in endpoints if e['name'] == name]
