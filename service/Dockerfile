@@ -28,10 +28,13 @@ ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1 \
     HF_HOME=/runpod-volume/cache/huggingface TORCH_HOME=/runpod-volume/cache/torch \
     XDG_CACHE_HOME=/runpod-volume/cache/xdg HF_HUB_DISABLE_TELEMETRY=1 \
     HF_HUB_DISABLE_IMPLICIT_TOKEN=1 TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=0 \
+    HF_XET_CHUNK_CACHE_SIZE_BYTES=0 \
     OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ca-certificates ffmpeg libglib2.0-0 libgl1 build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    git ca-certificates ffmpeg libglib2.0-0 libgl1 build-essential python3-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m venv --system-site-packages /opt/gemx-env
+ENV VIRTUAL_ENV=/opt/gemx-env PATH=/opt/gemx-env/bin:${PATH}
 RUN git clone https://github.com/NVlabs/GEM-X.git /opt/gemx \
     && cd /opt/gemx && git checkout 20555befe2fbbe5b2015e1fff7ff214dc18ea9d6 \
     && python -m pip install '.[video]' runpod==1.7.13 boto3==1.40.61 \

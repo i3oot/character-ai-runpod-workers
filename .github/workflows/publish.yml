@@ -25,7 +25,7 @@ jobs:
           python3 -m venv /tmp/worker-tests
           /tmp/worker-tests/bin/pip install numpy scipy
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y --no-install-recommends ffmpeg
           /tmp/worker-tests/bin/python -m unittest discover -s service -p 'test_*.py' -v
       - name: Free build disk
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
