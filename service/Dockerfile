@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV VIRTUAL_ENV=/opt/gemx-env PATH=/opt/gemx-env/bin:${PATH}
 RUN git clone https://github.com/NVlabs/GEM-X.git /opt/gemx \
     && cd /opt/gemx && git checkout 20555befe2fbbe5b2015e1fff7ff214dc18ea9d6 \
-    && python -m pip install '.[video]' runpod==1.7.13 boto3==1.40.61 \
+    && python -m pip install '.[video]' runpod==1.7.13 boto3==1.40.61 'click==8.3.1' \
     && python -m pip check \
     && python -c 'import gem.inference.body_video; import soma; import cv2; import onnxruntime'
 WORKDIR /app
