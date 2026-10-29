@@ -18,6 +18,9 @@ frames match the animation clock. The real video used `--camera background` and
 Contact/IK correction. Evidence is retained locally in
 `art/character-ai/gemx-runpod-smoke-v1/`; this is a service test, not game-animation
 quality acceptance or a calibrated accuracy benchmark.
+After completion the underlying worker pod was verified as `EXITED`, with no
+runtime. RunPod's health view can retain idle/ready worker records after shutdown;
+the saved `resource-state.json` records the actual pod state.
 
 ## Operation
 
