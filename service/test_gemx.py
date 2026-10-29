@@ -92,7 +92,7 @@ class GemXContractTests(unittest.TestCase):
         bind = Rotation.from_euler('XYZ', [[12, 8, 0], [0, 90, 0], [0, 0, 45], [2, 3, 4]], degrees=True).as_matrix()
         delta = Rotation.from_euler('XYZ', [[0, 0, 0], [25, 40, -15], [20, 90, 0]], degrees=True).as_matrix()
         delta = np.broadcast_to(delta[:, None], (3, 4, 3, 3)).copy()
-        delta[:, 1] = delta[:, 1] @ Rotation.from_euler('Z', [0, 35, -20], degrees=True).as_matrix()
+        delta[:, 1] = delta[:, 1] @ Rotation.from_euler('Z', [[0], [35], [-20]], degrees=True).as_matrix()
         positions = np.einsum('tij,kj->tki', delta[:, 0], rest - rest[0]) + [1, 1, 0.3]
         positions[:, 3] += np.array([[0, 0, 0], [0.01, 0.02, 0], [-0.02, 0, 0.03]])
         with tempfile.TemporaryDirectory() as folder:
